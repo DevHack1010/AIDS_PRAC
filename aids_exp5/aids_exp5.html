@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Global Weather Dashboard</title>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<style>
+*{box-sizing:border-box;font-family:Inter,sans-serif}
+body{margin:0;padding:20px;background:#000;color:#eee;display:flex;flex-direction:column;align-items:center}
+h1,h2{margin:0;color:#ff4444}
+.dashboard{max-width:1400px;display:grid;gap:20px;width:100%;grid-template-columns:repeat(12,1fr)}
+.card{background:#111;padding:20px;border:1px solid #333;border-radius:12px;box-shadow:0 4px 12px rgba(255,0,0,.3)}
+.header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+@media(min-width:992px){
+.geo{grid-column:1/8}.bar{grid-column:8/-1}.line{grid-column:1/7}.pie{grid-column:7/-1}
+}
+.chart{width:100%;height:400px}
+</style>
+</head>
+<body>
+<div class="dashboard">
+<header class="card header"><h1>Global Weather Dashboard</h1>
+<div><small>Data Range:</small><div>2022–2024</div></div></header>
+<section class="card geo"><h2>Avg Temp by Country (°C)</h2><div id="geo"></div></section>
+<section class="card bar"><h2>Top 10 Hottest Countries</h2><div id="bar"></div></section>
+<section class="card line"><h2>Temperature Trends (2022–2024)</h2><div id="line"></div></section>
+<section class="card pie"><h2>Weather Type Distribution</h2><div id="pie"></div></section>
+</div>
+
+<script>
+google.charts.load('current',{packages:['corechart','geochart','bar']});
+google.charts.setOnLoadCallback(init);
+
+const weatherData=[
+ ["India","Asia",avg(25,35)],[ "USA","N. America",avg(5,25)],[ "Brazil","S. America",avg(20,30)],
+ ["Australia","Oceania",avg(15,35)],[ "Russia","Europe",avg(-5,15)],[ "China","Asia",avg(10,25)],
+ ["Egypt","Africa",avg(20,40)],[ "Nigeria","Africa",avg(25,35)],[ "Japan","Asia",avg(10,25)],
+ ["Canada","N. America",avg(-10,15)],[ "France","Europe",avg(5,25)],[ "Mexico","N. America",avg(15,30)],
+ ["Argentina","S. America",avg(10,25)],["South Africa","Africa",avg(15,30)]];
+function avg(min,max){return +(Math.random()*(max-min)+min).toFixed(1);}
+
+function init(){geo();bar();line();pie();window.onresize=()=>init();}
+
+// 1️⃣ GEO CHART
+function geo(){
+ const d=new google.visualization.DataTable();
+ d.addColumn('string','Country');d.addColumn('number','Avg Temp');
+ weatherData.forEach(c=>d.addRow([c[0],c[2]]));
+ new google.visualization.GeoChart(document.getElementById('geo')).draw(d,{
+   colorAxis:{colors:['#99f','#f44','#900']},backgroundColor:'#111',datalessRegionColor:'#333'
+ });
+}
+
+// 2️⃣ BAR CHART
+function bar(){
+ const top=weatherData.sort((a,b)=>b[2]-a[2]).slice(0,10).reverse();
+ const d=google.visualization.arrayToDataTable([['Country','Temp',{role:'style'}],...top.map((c,i)=>[c[0],c[2],`hsl(${0+i*10},90%,60%)`])]);
+ new google.visualization.BarChart(document.getElementById('bar')).draw(d,{
+   chartArea:{width:'60%'},legend:'none',backgroundColor:'#111',
+   hAxis:{textStyle:{color:'#ccc'},title:'°C',titleTextStyle:{color:'#ccc'}},vAxis:{textStyle:{color:'#ccc'}}
+ });
+}
+
+// 3️⃣ LINE CHART
+function line(){
+ const yrs=["2022","2023","2024"],countries=["India","USA","Russia","Brazil"];
+ const d=new google.visualization.DataTable();
+ d.addColumn('string','Year');countries.forEach(c=>d.addColumn('number',c));
+ yrs.forEach(y=>{
+   const row=[y];
+   countries.forEach(c=>{
+     const base=weatherData.find(x=>x[0]==c)?.[2]||20;
+     row.push(+(base+(Math.random()*4-2)).toFixed(1)); // random fluctuation
+   });
+   d.addRow(row);
+ });
+ new google.visualization.LineChart(document.getElementById('line')).draw(d,{
+   curveType:'function',backgroundColor:'#111',
+   legend:{position:'bottom',textStyle:{color:'#ccc'}},
+   colors:['#ff4444','#ff7777','#ff9999','#ff2222'],
+   vAxis:{title:'Temp (°C)',textStyle:{color:'#ccc'},titleTextStyle:{color:'#ccc'}}
+ });
+}
+
+// 4️⃣ PIE CHART
+function pie(){
+ const types={Sunny:avg(30,50),Cloudy:avg(20,30),Rainy:avg(10,25),Snowy:avg(5,15)};
+ const d=google.visualization.arrayToDataTable([['Weather','%'],...Object.entries(types)]);
+ new google.visualization.PieChart(document.getElementById('pie')).draw(d,{
+   pieHole:.4,backgroundColor:'#111',legend:{textStyle:{color:'#ccc'}},
+   colors:['#ff4444','#ff7777','#aa0000','#660000']
+ });
+}
+</script>
+</body>
+</html>

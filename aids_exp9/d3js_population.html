@@ -1,0 +1,220 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Population Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            background-color: #f4f7fa;
+            color: #333;
+        }
+        .dashboard-header {
+            width: 100%;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .dashboard-header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            width: 90%;
+            max-width: 1200px;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        /* Key Metrics (KPIs) Styling */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .kpi-box {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .kpi-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.2em;
+            color: #7f8c8d;
+            font-weight: 400;
+        }
+        .kpi-box .kpi-value {
+            font-size: 2.8em;
+            font-weight: 700;
+            color: #2980b9;
+        }
+        .kpi-box#live-population .kpi-value {
+            color: #27ae60; /* Highlight color for live count */
+            letter-spacing: 1px;
+        }
+        /* Chart Styling */
+        .chart-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            padding: 30px;
+        }
+        .bar-gradient-base { stop-color: #2980b9; }
+        .bar-gradient-top { stop-color: #3498db; }
+        .bar-gradient-hover-base { stop-color: #c0392b; }
+        .bar-gradient-hover-top { stop-color: #e74c3c; }
+        .bar-front { fill: url(#barGradient); transition: transform 0.2s ease-out, fill 0.3s ease; transform-origin: bottom; }
+        .bar-front:hover { transform: translateY(-5px) scaleY(1.02); fill: url(#barGradientHover); }
+        .bar-shadow { fill: rgba(0,0,0,0.1); transform: translate(5px, 5px); }
+        .bar-top-face { fill: url(#barGradientTopFace); stroke: rgba(0,0,0,0.1); stroke-width: 0.5px; opacity: 0.9; transition: opacity 0.2s; }
+        .bar-top-face:hover { opacity: 1; }
+        .axis text { font-size: 0.9em; fill: #555; }
+        .axis path, .axis line { stroke: #bbb; }
+        .axis-label { font-size: 1em; fill: #444; font-weight: 500; }
+        .tooltip { position: absolute; text-align: center; padding: 10px; font-size: 0.9em; background: rgba(0, 0, 0, 0.8); color: #fff; border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
+        .tooltip.active { opacity: 1; }
+    </style>
+</head>
+<body>
+    <header class="dashboard-header">
+        <h1>India Population Dashboard 🇮🇳</h1>
+    </header>
+
+    <main class="dashboard-container">
+        <section class="kpi-container">
+            <div class="kpi-box" id="live-population">
+                <h3>Live Estimated Population</h3>
+                <p id="live-population-count" class="kpi-value">Loading...</p>
+            </div>
+            <div class="kpi-box">
+                <h3>Annual Growth Rate</h3>
+                <p id="growth-rate" class="kpi-value">~0.81%</p>
+            </div>
+            <div class="kpi-box">
+                <h3>Largest City</h3>
+                <p id="largest-city" class="kpi-value">Delhi</p>
+            </div>
+        </section>
+
+        <section class="chart-container">
+            <h2 style="text-align: center; margin-top: 0;">Population of Major World Countries</h2>
+            <svg id="populationChart"></svg>
+        </section>
+    </main>
+    <div class="tooltip"></div>
+
+    <script>
+        // --- SCRIPT FOR LIVE COUNTER AND CHART ---
+
+        // 1. LIVE POPULATION SIMULATION 📈
+        function startLiveCounter() {
+            const basePopulation = 1441719852; // Approx. population on Jan 1, 2024
+            const baseDate = new Date('2024-01-01T00:00:00Z');
+            const annualGrowthRate = 0.0081; // Approx. 0.81%
+            
+            // Calculate growth per second
+            const annualGrowth = basePopulation * annualGrowthRate;
+            const growthPerSecond = annualGrowth / (365 * 24 * 60 * 60);
+
+            const counterElement = d3.select("#live-population-count");
+            const numberFormat = d3.format(","); // Format number with commas
+
+            function updateCounter() {
+                const now = new Date();
+                const secondsElapsed = (now - baseDate) / 1000;
+                const currentPopulation = basePopulation + (secondsElapsed * growthPerSecond);
+
+                counterElement.text(numberFormat(Math.floor(currentPopulation)));
+            }
+
+            // Update immediately and then every second
+            updateCounter();
+            setInterval(updateCounter, 1000);
+        }
+
+        // 2. D3.JS 3D-LIKE BAR CHART 📊
+        function drawBarChart() {
+            const dataset = [
+                { country: "India", population: 1428 },
+                { country: "China", population: 1425 },
+                { country: "USA", population: 339 },
+                { country: "Indonesia", population: 277 },
+                { country: "Pakistan", population: 240 },
+                { country: "Nigeria", population: 223 },
+                { country: "Brazil", population: 216 }
+            ];
+
+            const container = d3.select(".chart-container");
+            const width = parseInt(container.style("width"));
+            const height = width * 0.5;
+            const margin = { top: 20, right: 20, bottom: 70, left: 70 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+
+            const svg = d3.select("#populationChart")
+                .attr("viewBox", `0 0 ${width} ${height}`)
+                .attr("preserveAspectRatio", "xMinYMin meet");
+
+            const tooltip = d3.select(".tooltip");
+
+            // Define gradients
+            const defs = svg.append("defs");
+            const barGradient = defs.append("linearGradient").attr("id", "barGradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+            barGradient.append("stop").attr("offset", "0%").attr("class", "bar-gradient-top");
+            barGradient.append("stop").attr("offset", "100%").attr("class", "bar-gradient-base");
+            const barGradientHover = defs.append("linearGradient").attr("id", "barGradientHover").attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+            barGradientHover.append("stop").attr("offset", "0%").attr("class", "bar-gradient-hover-top");
+            barGradientHover.append("stop").attr("offset", "100%").attr("class", "bar-gradient-hover-base");
+            const barGradientTopFace = defs.append("linearGradient").attr("id", "barGradientTopFace").attr("x1", "0%").attr("y1", "0%").attr("x2", "100%").attr("y2", "0%");
+            barGradientTopFace.append("stop").attr("offset", "0%").attr("stop-color", "rgba(255,255,255,0.4)");
+            barGradientTopFace.append("stop").attr("offset", "100%").attr("stop-color", "rgba(0,0,0,0.1)");
+            
+            const chart = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+            
+            const xScale = d3.scaleBand().domain(dataset.map(d => d.country)).range([0, chartWidth]).padding(0.3);
+            const yScale = d3.scaleLinear().domain([0, d3.max(dataset, d => d.population) * 1.05]).range([chartHeight, 0]);
+
+            const xAxis = d3.axisBottom(xScale);
+            chart.append("g").attr("class", "axis").attr("transform", `translate(0, ${chartHeight})`).call(xAxis).selectAll("text").attr("transform", "rotate(-45)").style("text-anchor", "end");
+
+            const yAxis = d3.axisLeft(yScale).tickFormat(d => d + "M");
+            chart.append("g").attr("class", "axis").call(yAxis);
+
+            chart.selectAll(".bar-group").data(dataset).enter().append("g")
+                .attr("class", "bar-group")
+                .attr("transform", d => `translate(${xScale(d.country)}, ${yScale(d.population)})`)
+                .each(function(d) {
+                    const barX = 0, barY = 0, barWidth = xScale.bandwidth(), barHeight = chartHeight - yScale(d.population), depth = 15;
+                    d3.select(this).append("rect").attr("class", "bar-shadow").attr("x", barX + depth * 0.5).attr("y", barY + depth * 0.5).attr("width", barWidth).attr("height", barHeight).attr("rx", 3).attr("ry", 3);
+                    d3.select(this).append("rect").attr("class", "bar-front").attr("x", barX).attr("y", barY).attr("width", barWidth).attr("height", barHeight).attr("rx", 5).attr("ry", 5);
+                    d3.select(this).append("polygon").attr("class", "bar-top-face").attr("points", `${barX},${barY} ${barX + barWidth},${barY} ${barX + barWidth + depth},${barY - depth} ${barX + depth},${barY - depth}`);
+                })
+                .on("mouseover", function(event, d) {
+                    d3.select(this).select(".bar-front").style("fill", `url(#barGradientHover)`);
+                    tooltip.classed("active", true).html(`<strong>${d.country}</strong><br>${d.population} million`).style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).select(".bar-front").style("fill", `url(#barGradient)`);
+                    tooltip.classed("active", false);
+                });
+        }
+
+        // 3. INITIALIZE DASHBOARD
+        startLiveCounter();
+        drawBarChart();
+    </script>
+</body>
+</html>
